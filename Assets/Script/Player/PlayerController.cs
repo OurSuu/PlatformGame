@@ -24,6 +24,10 @@ public class PlayerController : MonoBehaviour
     [Header("Jump Physics")]
     public float jumpGravityMultiplier = 2.2f;  // คูณ gravity ตอนขึ้นและลง ให้พุ่ง/ตกไวพอๆ กัน
 
+    [Header("Coyote Time (Jump leniency)")]
+    public float coyoteTime = 0.17f; // เวลาที่จะอนุญาตให้กระโดดหลังจากไม่อยู่พื้นแล้ว (วินาที)
+    private float coyoteTimeCounter = 0f;
+
     [Header("Sound")]
     public AudioClip jumpSound;
     [Range(0f, 1f)] public float jumpSoundVolume = 0.7f;
@@ -44,6 +48,9 @@ public class PlayerController : MonoBehaviour
 
     private SpriteRenderer spriteRenderer;
 
+    // Animator สำหรับควบคุมอนิเมชั่นเดิน วิ่ง กระโดด ตก
+    private Animator animator;
+
     // State สำหรับวิ่ง
     private bool isCurrentlyRunning = false;
 
@@ -59,6 +66,12 @@ public class PlayerController : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
         }
+
+        animator = GetComponent<Animator>();
+        if (animator == null)
+        {
+            Debug.LogWarning("No Animator component found on Player for animation control!");
+        }
     }
 
     void Update()
@@ -70,10 +83,24 @@ public class PlayerController : MonoBehaviour
             if (currentStamina > maxStamina) currentStamina = maxStamina;
         }
 
-        if (!canMove) return;
+        if (!canMove)
+        {
+            SetIdleAnimation();
+            return;
+        }
 
         // เช็คพื้น
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+
+        // Coyote Time - รีเซ็ตหากอยู่พื้น, นับถอยหลังหากไม่อยู่พื้น
+        if (isGrounded)
+        {
+            coyoteTimeCounter = coyoteTime;
+        }
+        else
+        {
+            coyoteTimeCounter -= Time.deltaTime;
+        }
 
         // รับ Input
         moveInput = Input.GetAxisRaw("Horizontal");
@@ -84,8 +111,8 @@ public class PlayerController : MonoBehaviour
         // บันทึกว่า run อยู่หรือไม่
         isCurrentlyRunning = Input.GetKey(KeyCode.LeftShift) && moveInput != 0 && currentSpeed == runSpeed && currentStamina > 0;
 
-        // กระโดด: ปรับ jump ให้ขึ้น/ลง ไว้เท่าๆ กัน ลื่นขึ้น
-        if (isGrounded && Input.GetButtonDown("Jump"))
+        // กระโดด: ปรับ jump ให้ขึ้น/ลง ไว้เท่าๆ กัน ลื่นขึ้น + Coyote Time
+        if (coyoteTimeCounter > 0f && Input.GetButtonDown("Jump"))
         {
             float gravity = Physics2D.gravity.y * cachedGravityScale * jumpGravityMultiplier;
             float targetHeight = jumpForce;
@@ -105,6 +132,15 @@ public class PlayerController : MonoBehaviour
             {
                 audioSource.PlayOneShot(jumpSound, jumpSoundVolume);
             }
+
+            // Animation: กระโดด
+            if (animator != null)
+            {
+                animator.SetTrigger("Jump");
+            }
+
+            // เมื่อโดดแล้ว รีเซ็ต coyote ทันทีเพื่อไม่ให้โดดซ้ำหลังจากกดซ้ำๆกลางอากาศ
+            coyoteTimeCounter = 0f;
         }
 
         // Flip ตลอดเวลาที่เดิน (เหมือน Platformer Classic)
@@ -117,11 +153,43 @@ public class PlayerController : MonoBehaviour
             Flip();
         }
 
+        // Animation Logic
+        UpdateAnimationState();
+
         // เพิ่มความ "ลื่น" ของกระโดด/ตก: กระโดดขึ้นจะเร่งลง, ตกลงก็จะเร่งเหมือนกัน ใช้ตัวคูณเดียว
         if (rb != null && !isGrounded)
         {
             rb.velocity += Vector2.up * Physics2D.gravity.y * (jumpGravityMultiplier - 1f) * Time.deltaTime * cachedGravityScale;
         }
+    }
+
+    void UpdateAnimationState()
+    {
+        if (animator == null) return;
+
+        bool isFalling = rb.velocity.y < -0.1f && !isGrounded;
+        bool isJumping = rb.velocity.y > 0.1f && !isGrounded;
+        bool isMoving = Mathf.Abs(moveInput) > 0.01f;
+
+        // เดิน/วิ่ง
+        animator.SetBool("IsWalking", isMoving && currentSpeed == walkSpeed && isGrounded);
+        animator.SetBool("IsRunning", isMoving && currentSpeed == runSpeed && isGrounded);
+        // กระโดด
+        animator.SetBool("IsJumping", isJumping);
+        // ร่วง
+        animator.SetBool("IsFalling", isFalling);
+        // Idle
+        animator.SetBool("IsIdle", !isMoving && isGrounded);
+    }
+
+    void SetIdleAnimation()
+    {
+        if (animator == null) return;
+        animator.SetBool("IsWalking", false);
+        animator.SetBool("IsRunning", false);
+        animator.SetBool("IsJumping", false);
+        animator.SetBool("IsFalling", false);
+        animator.SetBool("IsIdle", true);
     }
 
     void FixedUpdate()
@@ -185,5 +253,11 @@ public class PlayerController : MonoBehaviour
     {
         canMove = state;
         if (!state) rb.velocity = Vector2.zero;
+
+        // เมื่อหยุด ให้ตั้งเป็น Idle animation
+        if (!state)
+        {
+            SetIdleAnimation();
+        }
     }
 }
