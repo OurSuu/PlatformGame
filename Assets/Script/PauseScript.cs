@@ -9,12 +9,29 @@ public class PauseScript : MonoBehaviour
     public TMP_Text mainMenuButtonText;
     public TMP_Text restartButtonText;
 
+    [Header("เสียงเวลาเปิด/ปิด Pause")]
+    public AudioClip pauseSound;
+    [Range(0f, 1f)] public float pauseSoundVolume = 0.85f;
+
+    [Header("เสียงปุ่ม Resume (Resume Button Sound)")]
+    public AudioClip resumeButtonSound;
+    [Range(0f, 1f)] public float resumeButtonSoundVolume = 1f;
+
+    private AudioSource audioSource;
+
     private bool isPaused = false;
 
     void Start()
     {
         if (pausePanel != null)
             pausePanel.SetActive(false);
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
 
     void Update()
@@ -34,6 +51,9 @@ public class PauseScript : MonoBehaviour
         Time.timeScale = 0f;
         if (pausePanel != null)
             pausePanel.SetActive(true);
+
+        // เล่นเสียงตอนเปิด pause
+        PlayPauseSound();
     }
 
     public void ResumeGame()
@@ -42,6 +62,9 @@ public class PauseScript : MonoBehaviour
         Time.timeScale = 1f;
         if (pausePanel != null)
             pausePanel.SetActive(false);
+
+        // เล่นเสียงตอนกด Resume (Button/ResumeSound)
+        PlayResumeButtonSound();
     }
 
     public void GoToMainMenu()
@@ -77,5 +100,21 @@ public class PauseScript : MonoBehaviour
             pausePanel.SetActive(false);
 
         isPaused = false;
+    }
+
+    private void PlayPauseSound()
+    {
+        if (pauseSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(pauseSound, pauseSoundVolume);
+        }
+    }
+
+    private void PlayResumeButtonSound()
+    {
+        if (resumeButtonSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(resumeButtonSound, resumeButtonSoundVolume);
+        }
     }
 }

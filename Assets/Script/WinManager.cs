@@ -6,9 +6,27 @@ public class WinManager : MonoBehaviour
     public GameObject winScreenUI; // ลาก Panel WinScreen มาใส่
     private bool hasWon = false;
 
+    // เพิ่มเสียงตอน Player เดินชนเข้า Win
+    [Header("Win Sound")]
+    public AudioClip winSound;
+    [Range(0f, 1f)]
+    public float winSoundVolume = 1f;
+    private AudioSource audioSource;
+
     // ชื่อ Scene เเรกสุดที่ต้องเกิดใหม่เสมอ เช่น "GamePlay" ให้เปลี่ยนถ้าตั้งชื่อ Scene อื่น
     [SerializeField]
     private string firstSpawnSceneName = "GamePlay";
+
+    void Start()
+    {
+        // เตรียม AudioSource สำหรับเล่นเสียง
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
+    }
 
     // เพิ่ม Layer "Player" ที่ CheckBox isTrigger!
     void OnTriggerEnter2D(Collider2D other)
@@ -37,6 +55,13 @@ public class WinManager : MonoBehaviour
         if (player != null && !hasWon)
         {
             hasWon = true;
+
+            // เล่นเสียงชน Win (ถ้ามีเสียง)
+            if (winSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(winSound, winSoundVolume);
+            }
+
             // เด้ง UI พร้อมหยุดเวลา แต่การหยุดเวลาจะเกิดหลัง 1 เฟรม ให้ UI เด้งชัวร์โดยเรียกผ่าน Coroutine
             StartCoroutine(ShowWinUIAndPauseGame());
         }

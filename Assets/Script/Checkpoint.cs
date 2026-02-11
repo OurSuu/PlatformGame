@@ -12,12 +12,27 @@ public class Checkpoint : MonoBehaviour
     [Tooltip("ติ้ก = ใช้เป็นจุดเกิดครั้งแรกของ Level (ก่อนโดน Checkpoint อื่น)")]
     public bool setAsInitialSpawn;
 
+    [Header("เสียงตอนรีสปอนที่เช็คพอยท์ (Respawn at Checkpoint Sound)")]
+    public AudioClip respawnSound;
+    [Range(0f, 1f)]
+    public float respawnSoundVolume = 1f;
+
+    private static AudioClip staticRespawnSound;
+    private static float staticRespawnSoundVolume = 1f;
+
     void Awake()
     {
         if (setAsInitialSpawn)
         {
             lastCheckpointPosition = transform.position;
             hasCheckpoint = true;
+        }
+
+        // บันทึกคลิปเสียงและวอลลุ่มใน static ครั้งแรกที่มี Checkpoint ใดถูกสร้าง
+        if (respawnSound != null)
+        {
+            staticRespawnSound = respawnSound;
+            staticRespawnSoundVolume = respawnSoundVolume;
         }
     }
 
@@ -28,30 +43,52 @@ public class Checkpoint : MonoBehaviour
         {
             lastCheckpointPosition = transform.position;
             hasCheckpoint = true;
+            // ถ้ามี respawnSound ในเช็คพอยท์นี้ ให้ตั้งเป็น static สำหรับเสียง spawn
+            if (respawnSound != null)
+            {
+                staticRespawnSound = respawnSound;
+                staticRespawnSoundVolume = respawnSoundVolume;
+            }
         }
     }
 
     /// <summary>
-    /// ตำแหน่ง respawn ล่าสุด
+    /// ตำแหน่ง respawn ล่าสุด และเล่นเสียงทุกครั้งที่ respawn
     /// </summary>
     public static Vector3 GetSpawnPosition()
     {
+        Vector3 spawn = Vector3.zero;
+
         if (hasCheckpoint)
         {
-            Vector3 p = lastCheckpointPosition;
-            p.z = 0f; // 2D
-            return p;
+            spawn = lastCheckpointPosition;
         }
-
-        GameObject player = GameObject.FindWithTag("Player");
-        if (player != null)
+        else
         {
-            Vector3 p = player.transform.position;
-            p.z = 0f;
-            return p;
+            GameObject player = GameObject.FindWithTag("Player");
+            if (player != null)
+            {
+                spawn = player.transform.position;
+            }
+        }
+        spawn.z = 0f; // 2D
+
+        // พยายามเล่นเสียง Spawn ที่ Checkpoint (staticRespawnSound)
+        if (staticRespawnSound != null)
+        {
+            // สร้าง GameObject ชั่วคราวเพื่อเล่นเสียง (ในกรณีไม่มี AudioListener ตรงตำแหน่ง)
+            var tempObj = new GameObject("TempRespawnSound");
+            tempObj.transform.position = spawn;
+            AudioSource src = tempObj.AddComponent<AudioSource>();
+            src.clip = staticRespawnSound;
+            src.volume = staticRespawnSoundVolume;
+            src.playOnAwake = false;
+            src.spatialBlend = 0f; // 2D sound
+            src.Play();
+            Object.Destroy(tempObj, staticRespawnSound.length + 0.1f);
         }
 
-        return Vector3.zero;
+        return spawn;
     }
 
     void OnDrawGizmos()

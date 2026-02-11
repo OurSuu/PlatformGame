@@ -12,10 +12,26 @@ public class DeploySpot : MonoBehaviour
     [Tooltip("ข้อความเมื่อไม่มีกุญแจ")]
     public string noKeyMessage = "ท่านไม่มีกุญแจ";
 
+    [Header("เสียงตอนเปิดประตู")]
+    public AudioClip openDoorSound;
+    [Range(0f, 1f)] public float openDoorVolume = 0.8f;
+
     private Inventory playerInv;
     private GameObject playerObj;
     private string displayMessage = "";
     private bool used = false;
+    private AudioSource audioSource;
+
+    void Start()
+    {
+        // เตรียม AudioSource สำหรับเล่นเสียง
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
+    }
 
     void Update()
     {
@@ -59,6 +75,10 @@ public class DeploySpot : MonoBehaviour
                     // Wait for press E to open the door
                     if (Input.GetKeyDown(KeyCode.E) && door != null)
                     {
+                        if (openDoorSound != null && audioSource != null)
+                        {
+                            audioSource.PlayOneShot(openDoorSound, openDoorVolume);
+                        }
                         Destroy(door);
                         displayMessage = ""; // Clear because door opened
                         used = true;

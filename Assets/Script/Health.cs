@@ -14,6 +14,13 @@ public class Health : MonoBehaviour
     public float regenDelay = 5f;     // รอ 5 วิ หลังโดนดาเมจถึงจะเริ่มฟื้น
     public float regenPerSecond = 5f; // ฟื้นต่อวินาที
 
+    [Header("Sound")]
+    public AudioClip deathSound;
+    [Range(0f, 1f)] public float deathSoundVolume = 0.8f;
+    public AudioClip damageSound;
+    [Range(0f, 1f)] public float damageSoundVolume = 0.8f;
+    private AudioSource audioSource;
+
     private HidingSystem hidingSystem;
     private PlayerController playerController;
     private Rigidbody2D rb;
@@ -33,6 +40,13 @@ public class Health : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         sprite = GetComponent<SpriteRenderer>();
         currentHealth = maxHealth;
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
 
     void Update()
@@ -61,6 +75,11 @@ public class Health : MonoBehaviour
     {
         if (isDead || isInvincible) return;
 
+        if (amount > 0f && damageSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(damageSound, damageSoundVolume);
+        }
+
         currentHealth -= amount;
         lastDamageTime = Time.time;
         if (currentHealth < 0f) currentHealth = 0f;
@@ -76,6 +95,12 @@ public class Health : MonoBehaviour
     {
         if (isDead) return;
         isDead = true;
+
+        // เล่นเสียงตาย
+        if (deathSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(deathSound, deathSoundVolume);
+        }
 
         // ออกจากจุดซ่อนถ้าซ่อนอยู่
         if (hidingSystem != null && hidingSystem.isHiding)

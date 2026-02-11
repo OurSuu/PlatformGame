@@ -9,8 +9,24 @@ public class KeySystem : MonoBehaviour
     public string pickupPrompt = "กด E เพื่อเก็บกุญแจ [{key}]";
     public string pickupSuccess = "เก็บกุญแจแล้ว! [{key}]";
 
+    [Header("เสียงตอนเก็บกุญแจ")]
+    public AudioClip pickupSound;
+    [Range(0f, 1f)] public float pickupSoundVolume = 0.85f;
+
     private Inventory playerInv;
     private string displayMessage = "";
+    private AudioSource audioSource;
+
+    void Start()
+    {
+        // เตรียม AudioSource เอาไว้เล่นเสียงเก็บกุญแจ
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
+    }
 
     void Update()
     {
@@ -29,8 +45,18 @@ public class KeySystem : MonoBehaviour
                 {
                     // ส่ง keyID ไปที่ฟังก์ชัน GetKey ของ Inventory
                     playerInv.GetKey(keyID);
+
+                    // เล่นเสียงเมื่อเก็บกุญแจ
+                    if (pickupSound != null && audioSource != null)
+                    {
+                        audioSource.PlayOneShot(pickupSound, pickupSoundVolume);
+                    }
+
                     displayMessage = pickupSuccess.Replace("{key}", keyID);
-                    Destroy(gameObject);
+
+                    // ให้ Destroy หลังเสียงจบ (หรือทันทีถ้าไม่มีเสียง)
+                    float delay = (pickupSound != null) ? pickupSound.length : 0f;
+                    Destroy(gameObject, delay);
                 }
             }
             else

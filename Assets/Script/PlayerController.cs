@@ -24,6 +24,11 @@ public class PlayerController : MonoBehaviour
     [Header("Jump Physics")]
     public float jumpGravityMultiplier = 2.2f;  // คูณ gravity ตอนขึ้นและลง ให้พุ่ง/ตกไวพอๆ กัน
 
+    [Header("Sound")]
+    public AudioClip jumpSound;
+    [Range(0f, 1f)] public float jumpSoundVolume = 0.7f;
+    private AudioSource audioSource;
+
     private Rigidbody2D rb;
     private float moveInput;
     private bool isGrounded;
@@ -48,6 +53,12 @@ public class PlayerController : MonoBehaviour
         if (rb != null) cachedGravityScale = rb.gravityScale;
         currentStamina = maxStamina;
         spriteRenderer = GetComponent<SpriteRenderer>();
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
 
     void Update()
@@ -88,6 +99,12 @@ public class PlayerController : MonoBehaviour
             float newVy = Mathf.Sqrt(-2f * gravity * targetHeight);
 
             rb.velocity = new Vector2(rb.velocity.x, newVy);
+
+            // --- Play jump sound ---
+            if (jumpSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(jumpSound, jumpSoundVolume);
+            }
         }
 
         // Flip ตลอดเวลาที่เดิน (เหมือน Platformer Classic)
