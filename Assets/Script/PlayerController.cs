@@ -6,6 +6,7 @@ public class PlayerController : MonoBehaviour
     public float walkSpeed = 5f;
     public float runSpeed = 9f;
     public float jumpForce = 12f;
+    public float runJumpMultiplier = 1.25f; // กระโดดสูงขึ้นเมื่อวิ่งและกดกระโดด
     private float currentSpeed;
 
     [Header("Stamina Settings")]
@@ -20,9 +21,8 @@ public class PlayerController : MonoBehaviour
     public float checkRadius = 0.2f;
     public LayerMask groundLayer;
 
-    [Header("Fall Faster Settings")]
-    public float fallMultiplier = 2.5f;         // ตัวคูณ gravity ขณะตก
-    public float lowJumpMultiplier = 2f;        // ตัวคูณ gravity ถ้าปล่อยปุ่มกระโดดระหว่างขึ้น
+    [Header("Jump Physics")]
+    public float jumpGravityMultiplier = 2.2f;  // คูณ gravity ตอนขึ้นและลง ให้พุ่ง/ตกไวพอๆ กัน
 
     private Rigidbody2D rb;
     private float moveInput;
@@ -34,11 +34,13 @@ public class PlayerController : MonoBehaviour
     private bool hasStaminaDepleted = false;
     private float staminaEmptyTime = 0f; // เมื่อ stamina หมด
 
-    // --- ปรับสูตรกระโดดใหม่ให้กระโดด "ไวขึ้น" (เวลาไปถึงจุดสูงสุดน้อยลง) แต่ "สูงเท่าเดิมที่ jumpForce ตั้ง" ---
-    // เก็บค่าแรงโน้มถ่วงของ rb ตอน start เพื่อใช้คำนวณ velocity jumpStart
+    // สำหรับคูณ gravity ถ่วง jump
     private float cachedGravityScale = 1f;
 
     private SpriteRenderer spriteRenderer;
+
+    // State สำหรับวิ่ง
+    private bool isCurrentlyRunning = false;
 
     void Start()
     {
@@ -68,21 +70,27 @@ public class PlayerController : MonoBehaviour
         // ระบบ Stamina & วิ่ง
         HandleMovementLogic();
 
-        // กระโดดแบบใหม่: ปรับสูตรให้กระโดด "ไว" แต่ "สูงเท่า jumpForce"
+        // บันทึกว่า run อยู่หรือไม่
+        isCurrentlyRunning = Input.GetKey(KeyCode.LeftShift) && moveInput != 0 && currentSpeed == runSpeed && currentStamina > 0;
+
+        // กระโดด: ปรับ jump ให้ขึ้น/ลง ไว้เท่าๆ กัน ลื่นขึ้น
         if (isGrounded && Input.GetButtonDown("Jump"))
         {
-            float jumpSpeedTweak = 0.55f;
-            float gravity = Physics2D.gravity.y * cachedGravityScale;
+            float gravity = Physics2D.gravity.y * cachedGravityScale * jumpGravityMultiplier;
             float targetHeight = jumpForce;
 
-            float newVy = Mathf.Sqrt(-2f * gravity * targetHeight) / jumpSpeedTweak;
+            // ถ้าวิ่งและกดกระโดด - โดดสูงขึ้น
+            if (isCurrentlyRunning)
+            {
+                targetHeight *= runJumpMultiplier;
+            }
+
+            float newVy = Mathf.Sqrt(-2f * gravity * targetHeight);
 
             rb.velocity = new Vector2(rb.velocity.x, newVy);
         }
 
-        //=============== กลับไป Flip แบบปกติ: ไม่ set localScale.x = -1 หรือ 1 ==============
         // Flip ตลอดเวลาที่เดิน (เหมือน Platformer Classic)
-        // (เพื่อป้องกันวาป ให้เช็ค moveInput ทุกเฟรม แล้ว Flip ถ้าทิศเปลี่ยน)
         if (moveInput > 0 && !facingRight)
         {
             Flip();
@@ -92,17 +100,10 @@ public class PlayerController : MonoBehaviour
             Flip();
         }
 
-        // ============ เพิ่มการตกเร็วขึ้น ============
-        if (rb != null)
+        // เพิ่มความ "ลื่น" ของกระโดด/ตก: กระโดดขึ้นจะเร่งลง, ตกลงก็จะเร่งเหมือนกัน ใช้ตัวคูณเดียว
+        if (rb != null && !isGrounded)
         {
-            if (rb.velocity.y < 0)
-            {
-                rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime * cachedGravityScale;
-            }
-            else if (rb.velocity.y > 0 && !Input.GetButton("Jump"))
-            {
-                rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime * cachedGravityScale;
-            }
+            rb.velocity += Vector2.up * Physics2D.gravity.y * (jumpGravityMultiplier - 1f) * Time.deltaTime * cachedGravityScale;
         }
     }
 
