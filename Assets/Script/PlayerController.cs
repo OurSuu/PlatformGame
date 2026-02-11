@@ -24,10 +24,6 @@ public class PlayerController : MonoBehaviour
     public float fallMultiplier = 2.5f;         // ตัวคูณ gravity ขณะตก
     public float lowJumpMultiplier = 2f;        // ตัวคูณ gravity ถ้าปล่อยปุ่มกระโดดระหว่างขึ้น
 
-    //[Header("Quick Jump Settings")]
-    //public float instantJumpBoost = 2.5f;      // ตัวคูณเพิ่มความเร็วทันทีตอนกระโดด
-    // ลบ instantJumpBoost ออก (หรือคอมเมนต์) เพราะจะไม่คูณแรงกระโดด
-
     private Rigidbody2D rb;
     private float moveInput;
     private bool isGrounded;
@@ -42,11 +38,14 @@ public class PlayerController : MonoBehaviour
     // เก็บค่าแรงโน้มถ่วงของ rb ตอน start เพื่อใช้คำนวณ velocity jumpStart
     private float cachedGravityScale = 1f;
 
+    private SpriteRenderer spriteRenderer;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         if (rb != null) cachedGravityScale = rb.gravityScale;
         currentStamina = maxStamina;
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     void Update()
@@ -72,43 +71,39 @@ public class PlayerController : MonoBehaviour
         // กระโดดแบบใหม่: ปรับสูตรให้กระโดด "ไว" แต่ "สูงเท่า jumpForce"
         if (isGrounded && Input.GetButtonDown("Jump"))
         {
-            // ความสูงต้องได้ เท่า jumpForce (เดิมคือ .velocity = (x, jumpForce))
-            // หาเวลาถึงสูงสุด t = jumpForce / -g  => v = u + at, ตอนถึงยอดสูง v=0 => 0 = jumpVelocity + gravity*t, t = -jumpVelocity/g
-            // หากอยากไปถึงยอดไวขึ้น เช่น ครึ่งหนึ่งของเวลาปกติ ต้องเพิ่มความเร่ง y ขึ้น (แต่ให้ความสูงเท่าเดิม)
-            // แทนที่จะใช้ velocity เดิม เราใช้ velocity y ที่มากขึ้น แต่ scale gravity เชิง local สำหรับ jump period ก่อนตกดิ่ง
-            // แต่ถ้าไม่ยุ่งยาก: ให้ gravity scale คงเดิม แต่ "ปรับสูตร velocity y" เพื่อให้ขึ้นไวขึ้น (โดยประมาณ)
-
-            // วิธี: velocity y ให้มากขึ้น (ไปถึงสุดยอดไวขึ้น) แต่แก้ให้ความสูงสูงสุดเท่าเดิม (h = v^2/2g)
-            // อยากกระโดดใช้เวลาน้อยลง เช่น 60% ของเดิม
-            float jumpSpeedTweak = 0.55f; // 0.5 = เร็วขึ้นเป็นสองเท่า, 1 = ปกติ; ปรับค่านี้เอาตามต้องการ
+            float jumpSpeedTweak = 0.55f;
             float gravity = Physics2D.gravity.y * cachedGravityScale;
             float targetHeight = jumpForce;
 
-            // สูตร v = sqrt(-2 * g * h) / t_scale
             float newVy = Mathf.Sqrt(-2f * gravity * targetHeight) / jumpSpeedTweak;
 
             rb.velocity = new Vector2(rb.velocity.x, newVy);
         }
 
-        // กลับด้านตัวละคร
-        if (moveInput > 0 && !facingRight) Flip();
-        else if (moveInput < 0 && facingRight) Flip();
+        //=============== กลับไป Flip แบบปกติ: ไม่ set localScale.x = -1 หรือ 1 ==============
+        // Flip ตลอดเวลาที่เดิน (เหมือน Platformer Classic)
+        // (เพื่อป้องกันวาป ให้เช็ค moveInput ทุกเฟรม แล้ว Flip ถ้าทิศเปลี่ยน)
+        if (moveInput > 0 && !facingRight)
+        {
+            Flip();
+        }
+        else if (moveInput < 0 && facingRight)
+        {
+            Flip();
+        }
 
         // ============ เพิ่มการตกเร็วขึ้น ============
         if (rb != null)
         {
             if (rb.velocity.y < 0)
             {
-                // ถ้ากำลังตก ให้ตกเร็วขึ้น
                 rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime * cachedGravityScale;
             }
             else if (rb.velocity.y > 0 && !Input.GetButton("Jump"))
             {
-                // ถ้ากระโดดแล้วปล่อยปุ่ม ให้ตกเร็วกว่าเดิม (กระโดดเตี้ย)
                 rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime * cachedGravityScale;
             }
         }
-        // ============================================
     }
 
     void FixedUpdate()
@@ -123,14 +118,12 @@ public class PlayerController : MonoBehaviour
     {
         bool isTryingToRun = Input.GetKey(KeyCode.LeftShift) && moveInput != 0;
 
-        // Stamina หมด = mark depleted หยุดวิ่งทันที
         if (currentStamina <= 0)
         {
             hasStaminaDepleted = true;
             currentStamina = 0f;
         }
 
-        // ต้องฟื้นถึง 30 ถึงจะวิ่งได้อีก
         bool canRun = !hasStaminaDepleted || currentStamina >= staminaRunThreshold;
         if (canRun && currentStamina >= staminaRunThreshold)
             hasStaminaDepleted = false;
@@ -146,7 +139,6 @@ public class PlayerController : MonoBehaviour
             currentSpeed = walkSpeed;
         }
 
-        // ฟื้น stamina (กด Shift ค้าง = ไม่ฟื้น)
         if (!Input.GetKey(KeyCode.LeftShift) && currentStamina < maxStamina)
         {
             currentStamina += staminaRegen * Time.deltaTime;
@@ -154,12 +146,20 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Flip direction: กลับมาใช้วิธีปกติที่ platformer ทั่วไปใช้
     void Flip()
     {
         facingRight = !facingRight;
-        Vector3 scaler = transform.localScale;
-        scaler.x *= -1;
-        transform.localScale = scaler;
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.flipX = !facingRight;
+        }
+        else
+        {
+            Vector3 scaler = transform.localScale;
+            scaler.x *= -1;
+            transform.localScale = scaler;
+        }
     }
 
     // ฟังก์ชันสำหรับ Script อื่นมาสั่งหยุด/เดิน (เช่นตอนซ่อนตัว)
