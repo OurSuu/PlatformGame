@@ -85,6 +85,16 @@ public class WinManager : MonoBehaviour
     public void RestartGame()
     {
         Time.timeScale = 1f;
+
+        // --- Reset checkpoint position ที่เซฟไว้ (ถ้ามีระบบ Checkpoint ใช้ PlayerPrefs) ---
+        // สมมติชื่อ PlayerPrefs ที่ใช้เก็บ checkpoint เป็น "LastCheckpointX", "LastCheckpointY" (หรือปรับตามที่ใช้จริง)
+        PlayerPrefs.DeleteKey("LastCheckpointX");
+        PlayerPrefs.DeleteKey("LastCheckpointY");
+        PlayerPrefs.DeleteKey("LastCheckpointZ");
+        // ลบ key อื่นที่เกี่ยวข้องกับเช็คพอยท์ถ้ามีได้ที่นี่
+        PlayerPrefs.Save();
+        // ------------------------------------------------------------
+
         // โหลด Scene ต้นเกมใหม่เสมอ (Scene แรกที่กำหนด)
         SceneManager.LoadScene(firstSpawnSceneName);
     }
