@@ -1774,6 +1774,7 @@ GameObject:
   - component: {fileID: 442780493}
   - component: {fileID: 442780494}
   - component: {fileID: 442780495}
+  - component: {fileID: 442780496}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1843,7 +1844,7 @@ MonoBehaviour:
   runJumpMultiplier: 2
   maxStamina: 100
   currentStamina: 0
-  staminaDrain: 25
+  staminaDrain: 10
   staminaRegen: 15
   staminaRunThreshold: 20
   groundCheck: {fileID: 1210458976}
@@ -1852,6 +1853,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   jumpGravityMultiplier: 4
+  coyoteTime: 0.17
   jumpSound: {fileID: 8300000, guid: e9899dea46cb0bc40a1597eb0fc6a306, type: 3}
   jumpSoundVolume: 0.7
 --- !u!114 &442780491
@@ -2011,6 +2013,28 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!95 &442780496
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442780487}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 0}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &447176139
 GameObject:
   m_ObjectHideFlags: 0

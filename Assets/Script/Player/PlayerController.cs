@@ -28,6 +28,10 @@ public class PlayerController : MonoBehaviour
     public float coyoteTime = 0.17f; // เวลาที่จะอนุญาตให้กระโดดหลังจากไม่อยู่พื้นแล้ว (วินาที)
     private float coyoteTimeCounter = 0f;
 
+    [Header("Double Jump")]
+    public int maxJumpCount = 2; // สำหรับ Double Jump กำหนด 2 (โดดได้สองครั้ง)
+    private int jumpCount = 0;
+
     [Header("Sound")]
     public AudioClip jumpSound;
     [Range(0f, 1f)] public float jumpSoundVolume = 0.7f;
@@ -96,6 +100,7 @@ public class PlayerController : MonoBehaviour
         if (isGrounded)
         {
             coyoteTimeCounter = coyoteTime;
+            jumpCount = 0; // รีเซ็ตทุกครั้งที่แตะพื้น
         }
         else
         {
@@ -111,37 +116,50 @@ public class PlayerController : MonoBehaviour
         // บันทึกว่า run อยู่หรือไม่
         isCurrentlyRunning = Input.GetKey(KeyCode.LeftShift) && moveInput != 0 && currentSpeed == runSpeed && currentStamina > 0;
 
-        // กระโดด: ปรับ jump ให้ขึ้น/ลง ไว้เท่าๆ กัน ลื่นขึ้น + Coyote Time
-        if (coyoteTimeCounter > 0f && Input.GetButtonDown("Jump"))
+        // ระบบ Double Jump ---------------------------------------------------------------
+        bool jumpPressed = Input.GetButtonDown("Jump");
+        if (jumpPressed)
         {
-            float gravity = Physics2D.gravity.y * cachedGravityScale * jumpGravityMultiplier;
-            float targetHeight = jumpForce;
-
-            // ถ้าวิ่งและกดกระโดด - โดดสูงขึ้น
-            if (isCurrentlyRunning)
+            // กรณี 1: บนพื้นหรืออยู่ในคอยอตี้ไทม์ และยังไม่ได้โดดเลย
+            // กรณี 2: ในอากาศ และ jumpCount < maxJumpCount (โดดครั้งที่ 2)
+            if ((coyoteTimeCounter > 0f && jumpCount < 1) ||
+                (!isGrounded && jumpCount < maxJumpCount))
             {
-                targetHeight *= runJumpMultiplier;
+                float gravity = Physics2D.gravity.y * cachedGravityScale * jumpGravityMultiplier;
+                float targetHeight = jumpForce;
+
+                // ถ้าวิ่งและกดกระโดด - โดดสูงขึ้น
+                if (isCurrentlyRunning)
+                {
+                    targetHeight *= runJumpMultiplier;
+                }
+
+                float newVy = Mathf.Sqrt(-2f * gravity * targetHeight);
+
+                rb.velocity = new Vector2(rb.velocity.x, newVy);
+
+                // --- Play jump sound ---
+                if (jumpSound != null && audioSource != null)
+                {
+                    audioSource.PlayOneShot(jumpSound, jumpSoundVolume);
+                }
+
+                // Animation: กระโดด
+                if (animator != null)
+                {
+                    animator.SetTrigger("Jump");
+                }
+
+                // ถ้าเป็นการโดดจาก coyote/pad (ครั้งแรก) ให้รีเซ็ตคอยอตี้เลย
+                if (coyoteTimeCounter > 0f)
+                {
+                    coyoteTimeCounter = 0f;
+                }
+
+                jumpCount++;
             }
-
-            float newVy = Mathf.Sqrt(-2f * gravity * targetHeight);
-
-            rb.velocity = new Vector2(rb.velocity.x, newVy);
-
-            // --- Play jump sound ---
-            if (jumpSound != null && audioSource != null)
-            {
-                audioSource.PlayOneShot(jumpSound, jumpSoundVolume);
-            }
-
-            // Animation: กระโดด
-            if (animator != null)
-            {
-                animator.SetTrigger("Jump");
-            }
-
-            // เมื่อโดดแล้ว รีเซ็ต coyote ทันทีเพื่อไม่ให้โดดซ้ำหลังจากกดซ้ำๆกลางอากาศ
-            coyoteTimeCounter = 0f;
         }
+        // -------------------------------------------------------------------------------
 
         // Flip ตลอดเวลาที่เดิน (เหมือน Platformer Classic)
         if (moveInput > 0 && !facingRight)
