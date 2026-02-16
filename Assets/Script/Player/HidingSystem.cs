@@ -11,6 +11,27 @@ public class HidingSystem : MonoBehaviour
     // เพิ่ม Animator สำหรับเล่นอนิเมชั่น
     private Animator animator;
 
+    // เอา UI message สำหรับ "ซ่อนไม่ได้" ออก ไม่มี cannotHideMessageUI อีกต่อไป
+
+    // เพิ่มเพื่อเช็คศัตรูเห็นเราไหม
+    private bool IsAnyEnemySeePlayer()
+    {
+        // ดึง Enemy ทั้งหมดในฉาก
+        var enemies = GameObject.FindObjectsOfType<EnermyAi>();
+        foreach (var enemy in enemies)
+        {
+            // หาก Enemy เห็นผู้เล่น (canSeePlayer)
+            var field = typeof(EnermyAi).GetField("canSeePlayer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                bool canSee = (bool)field.GetValue(enemy);
+                if (canSee)
+                    return true;
+            }
+        }
+        return false;
+    }
+
     void Start()
     {
         moveScript = GetComponent<PlayerController>();
@@ -21,6 +42,7 @@ public class HidingSystem : MonoBehaviour
         {
             Debug.LogWarning("No Animator component found on Player for hiding animation!");
         }
+        // ตัด cannotHideMessageUI ออก (ไม่ต้องซ่อน UI)
     }
 
     /// <summary>
@@ -28,6 +50,13 @@ public class HidingSystem : MonoBehaviour
     /// </summary>
     public void EnterHidingSpot(Vector3 centerPosition)
     {
+        // ป้องกันซ่อนถ้าอยู่ในระยะที่ศัตรู "มองเห็น"
+        if (IsAnyEnemySeePlayer())
+        {
+            Debug.Log("Cannot hide: You are in enemy sight!");
+            // ตัด ShowCannotHideMessage ออก ไม่ต้องแสดงข้อความ
+            return;
+        }
         if (isHiding) return;
 
         isHiding = true;
@@ -52,6 +81,8 @@ public class HidingSystem : MonoBehaviour
             c.isTrigger = true;
         }
     }
+
+    // ตัด ShowCannotHideMessage และ HideCannotHideMessage ออก
 
     /// <summary>
     /// เรียกเมื่อผู้เล่นกด E อีกครั้งเพื่อออกจากจุดซ่อน

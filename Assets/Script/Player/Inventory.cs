@@ -32,21 +32,34 @@ public class Inventory : MonoBehaviour
         }
     }
 
-    // ฟังก์ชันเก็บกุญแจ
+    // ฟังก์ชันเก็บกุญแจ (เวอร์ชันใหม่ตามโจทย์)
     public void GetKey(string keyId)
     {
+        Debug.Log($"[Check 1] มีคำสั่งเก็บกุญแจส่งมา: '{keyId}'");
+
         if (!keyIDs.Contains(keyId))
         {
             keyIDs.Add(keyId);
-            Debug.Log($"เก็บกุญแจ: {keyId}");
-
             // ค้นหารูปของกุญแจนี้
             Sprite icon = GetSpriteByID(keyId);
 
             if (icon != null)
             {
-                AddToNextSlot(icon);
+                Debug.Log($"[Check 2] เจอรูปภาพของ '{keyId}' แล้ว! กำลังพยายามใส่ลงช่อง UI...");
+                bool success = AddToNextSlot(icon);
+
+                if(success) Debug.Log("[Check 3] ใส่รูปสำเร็จ! UI ควรจะขึ้นแล้ว");
+                else Debug.LogError("[Error] หาช่องว่างไม่เจอ! ช่อง UI อาจจะเต็มหรือไม่ได้ตั้งค่า GameObject ไว้");
             }
+            else
+            {
+                // ถ้าขึ้นบรรทัดนี้ แสดงว่าชื่อ KeyID ใน Inventory ไม่ตรงกับที่ตัวกุญแจส่งมา
+                Debug.LogError($"[Error] ไม่เจอรูปภาพสำหรับ ID: '{keyId}' (ลองเช็คตัวสะกดใน Inspector ดูว่ามีช่องว่างเกินมาไหม)");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[Info] กุญแจ '{keyId}' นี้มีในกระเป๋าอยู่แล้ว");
         }
     }
 
@@ -89,21 +102,21 @@ public class Inventory : MonoBehaviour
         return HasKey(keyId);
     }
 
-    // เอารูป sprite ไปใส่ในช่องว่าง (ช่องแรกที่เจอที่ GameObject ยังไม่เปิด)
-    void AddToNextSlot(Sprite icon)
+    // ฟังก์ชันนี้เปลี่ยนให้ส่งค่ากลับด้วย true/false
+    bool AddToNextSlot(Sprite icon)
     {
         foreach (Image slot in uiSlots)
         {
-            // เปลี่ยนเงื่อนไขเช็คว่า GameObject ปิดอยู่หรือไม่
+            // เช็คว่าช่องนี้ว่างอยู่ไหม (GameObject ปิดอยู่ = ว่าง)
             if (!slot.gameObject.activeSelf) 
             {
                 slot.sprite = icon;
                 slot.preserveAspect = true;
-                // สั่งเปิด GameObject ให้เห็นทันที
                 slot.gameObject.SetActive(true); 
-                return;
+                return true; // ใส่สำเร็จ
             }
         }
+        return false; // ใส่ไม่สำเร็จ (ช่องเต็ม)
     }
 
     // ฟังก์ชันช่วย: ได้ keyId แล้วหา sprite ที่ตรงชื่อ

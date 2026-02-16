@@ -10,11 +10,17 @@ public class HidingSpot : MonoBehaviour
 
     [Header("ข้อความที่แสดง")]
     public string promptText = "กด E เพื่อซ่อนตัว";
+    public string cannotHideText = "ไม่สามารถซ่อนได้ (ศัตรูกำลังเห็นคุณ!)"; // ข้อความกรณีซ่อนไม่ได้
 
     private bool playerInRange = false;
     private HidingSystem playerHidingScript;
     private GUIStyle promptStyle;
     private bool styleReady;
+
+    // State สำหรับ error message
+    private bool cannotHideMsgActive = false;
+    private float cannotHideMsgTimer = 0f;
+    private string cannotHideMsg = "";
 
     void Awake()
     {
@@ -31,9 +37,36 @@ public class HidingSpot : MonoBehaviour
             if (playerHidingScript != null)
             {
                 if (!playerHidingScript.isHiding)
+                {
+                    // ก่อนซ่อน: ตรวจสอบว่าศัตรูเห็นหรือไม่
+                    var field = typeof(HidingSystem).GetMethod("IsAnyEnemySeePlayer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (field != null)
+                    {
+                        bool isSee = (bool)field.Invoke(playerHidingScript, null);
+                        if (isSee)
+                        {
+                            // แสดงข้อความ "ไม่สามารถซ่อนได้ (ศัตรูกำลังเห็นคุณ!)"
+                            ShowCannotHideMessage(cannotHideText);
+                            return;
+                        }
+                    }
                     playerHidingScript.EnterHidingSpot(centerPoint.position);
+                }
                 else
+                {
                     playerHidingScript.ExitHidingSpot();
+                }
+            }
+        }
+
+        // timer สำหรับ hide message
+        if (cannotHideMsgActive)
+        {
+            cannotHideMsgTimer -= Time.deltaTime;
+            if (cannotHideMsgTimer <= 0f)
+            {
+                cannotHideMsgActive = false;
+                cannotHideMsg = "";
             }
         }
     }
@@ -86,10 +119,36 @@ public class HidingSpot : MonoBehaviour
         }
     }
 
+    void ShowCannotHideMessage(string msg)
+    {
+        cannotHideMsg = msg;
+        cannotHideMsgActive = true;
+        cannotHideMsgTimer = 2.0f;
+    }
+
     void OnGUI()
     {
+        // แสดง error message หากซ่อนไม่ได้
+        if (cannotHideMsgActive)
+        {
+            if (!styleReady)
+            {
+                promptStyle = new GUIStyle(GUI.skin.label);
+                promptStyle.fontSize = 22;
+                promptStyle.alignment = TextAnchor.MiddleCenter;
+                promptStyle.normal.textColor = Color.red;
+                promptStyle.fontStyle = FontStyle.Bold;
+                styleReady = true;
+            }
+            float w = 600f;
+            float h = 50f;
+            Rect r = new Rect(Screen.width * 0.5f - w * 0.5f, Screen.height * 0.7f, w, h);
+            // ใช้ cannotHideMsg ซึ่งจะ set เป็น cannotHideText เวลาโดนบล็อค
+            GUI.Label(r, cannotHideMsg, promptStyle);
+            return;
+        }
+
         if (!playerInRange || playerHidingScript == null) return;
-        // แสดงเฉพาะเมื่อยังไม่ซ่อน หรือซ่อนอยู่แล้ว (บอกกด E เพื่อออก)
         if (!styleReady)
         {
             promptStyle = new GUIStyle(GUI.skin.label);
@@ -101,10 +160,10 @@ public class HidingSpot : MonoBehaviour
         }
 
         string text = playerHidingScript.isHiding ? "กด E เพื่อออกจากจุดซ่อน" : promptText;
-        float w = 400f;
-        float h = 40f;
-        Rect r = new Rect(Screen.width * 0.5f - w * 0.5f, Screen.height * 0.7f, w, h);
-        GUI.Label(r, text, promptStyle);
+        float w2 = 400f;
+        float h2 = 40f;
+        Rect r2 = new Rect(Screen.width * 0.5f - w2 * 0.5f, Screen.height * 0.7f, w2, h2);
+        GUI.Label(r2, text, promptStyle);
     }
 
     void OnDrawGizmosSelected()

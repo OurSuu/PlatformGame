@@ -1892,7 +1892,7 @@ MonoBehaviour:
   respawnDelay: 1.5
   invincibilityDuration: 2
   regenDelay: 5
-  regenPerSecond: 5
+  regenPerSecond: 1
   deathSound: {fileID: 8300000, guid: af6c2f729ade8f8408865798a55c6217, type: 3}
   deathSoundVolume: 0.8
   damageSound: {fileID: 8300000, guid: b943420156d12654aa9d4278dcabd50d, type: 3}
@@ -2241,7 +2241,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2506,6 +2506,8 @@ MonoBehaviour:
   centerPoint: {fileID: 592259498}
   interactionRadius: 1.07
   promptText: "\u0E01\u0E14 E \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0B\u0E48\u0E2D\u0E19\u0E15\u0E31\u0E27"
+  cannotHideText: "\u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E0B\u0E48\u0E2D\u0E19\u0E44\u0E14\u0E49
+    (\u0E28\u0E31\u0E15\u0E23\u0E39\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E2B\u0E47\u0E19\u0E04\u0E38\u0E13!)"
 --- !u!1 &614921911
 GameObject:
   m_ObjectHideFlags: 0
@@ -3031,7 +3033,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -3929,7 +3931,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -5760,7 +5762,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -6717,7 +6719,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

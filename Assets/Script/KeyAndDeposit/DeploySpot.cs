@@ -97,19 +97,28 @@ public class DeploySpot : MonoBehaviour
     {
         if (playerInRange && !doorOpened && playerInv != null)
         {
+            // สเกลอิงตามความสูงหน้าจอ (รองรับทุกจอ)
+            float baseHeight = 1080f;
+            float scale = Mathf.Clamp(Screen.height / baseHeight, 0.5f, 2.5f);
+
             GUIStyle style = new GUIStyle(GUI.skin.label);
-            style.fontSize = 20;
+            style.fontSize = Mathf.RoundToInt(36 * scale); // ใหญ่ขึ้นสำหรับ 4K, ปรับได้ตามต้องการ
             style.fontStyle = FontStyle.Bold;
 
-            float startX = Screen.width / 2 - 150;
-            float startY = Screen.height / 2 - 100;
+            float panelWidth = 600f * scale;
+            float headerHeight = 64f * scale;
+            float itemHeight = 48f * scale;
+
+            float totalListHeight = itemHeight * requiredKeys.Length;
+            float startX = Screen.width / 2f - panelWidth / 2f;
+            float startY = Screen.height / 2f - (headerHeight + totalListHeight) / 2f;
 
             // แสดงหัวข้อ
             bool isReady = CheckAllKeys();
             string header = isReady ? openMessage : lockedMessage;
             style.normal.textColor = isReady ? Color.green : Color.red;
             style.alignment = TextAnchor.MiddleCenter;
-            GUI.Label(new Rect(startX, startY - 40, 300, 40), header, style);
+            GUI.Label(new Rect(startX, startY, panelWidth, headerHeight), header, style);
 
             // แสดงรายการกุญแจ
             style.alignment = TextAnchor.MiddleLeft;
@@ -119,7 +128,10 @@ public class DeploySpot : MonoBehaviour
                 bool hasIt = playerInv.HasKey(keyName);
                 string status = hasIt ? "[ / ] มีแล้ว" : "[ X ] ยังไม่มี";
                 style.normal.textColor = hasIt ? Color.green : Color.gray;
-                GUI.Label(new Rect(startX, startY + (i * 30), 300, 30), $"{keyName} : {status}", style);
+                GUI.Label(
+                    new Rect(startX + 32f * scale, startY + headerHeight + i * itemHeight, panelWidth - 64f * scale, itemHeight),
+                    $"{keyName} : {status}", style
+                );
             }
         }
     }
