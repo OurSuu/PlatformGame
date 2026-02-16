@@ -30,6 +30,10 @@ public class Health : MonoBehaviour
     private float invincibleEndTime;
     private float lastDamageTime;
 
+    // ป้องกันเล่นเสียง death/hurt เวลาตายจาก DeadArea
+    private bool skipNextDeathSound = false;
+    private bool skipNextDamageSound = false;
+
     public bool IsDead => isDead;
     public bool IsInvincible => isInvincible;
 
@@ -69,13 +73,23 @@ public class Health : MonoBehaviour
     }
 
     /// <summary>
+    /// สำหรับ DeadArea - ไม่เล่น "เสียงตาย" ใดๆ ตอนโดน Kill
+    /// </summary>
+    public void DieSilently()
+    {
+        skipNextDeathSound = true;
+        skipNextDamageSound = true;
+        Die();
+    }
+
+    /// <summary>
     /// รับ damage (เรียกจาก Enemy เมื่อ Player อยู่ในสายตา)
     /// </summary>
     public void TakeDamage(float amount)
     {
         if (isDead || isInvincible) return;
 
-        if (amount > 0f && damageSound != null && audioSource != null)
+        if (!skipNextDamageSound && amount > 0f && damageSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(damageSound, damageSoundVolume);
         }
@@ -86,6 +100,9 @@ public class Health : MonoBehaviour
 
         if (currentHealth <= 0f)
             Die();
+
+        // Reset flag ทีเดียวหลัง 1 event
+        skipNextDamageSound = false;
     }
 
     /// <summary>
@@ -96,8 +113,8 @@ public class Health : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
-        // เล่นเสียงตาย
-        if (deathSound != null && audioSource != null)
+        // ไม่เล่นเสียง death ถ้ามาจาก DieSilently (DeadArea เรียกใช้)
+        if (!skipNextDeathSound && deathSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(deathSound, deathSoundVolume);
         }
@@ -114,6 +131,9 @@ public class Health : MonoBehaviour
         SetPlayerVisible(false);
 
         Invoke(nameof(Respawn), respawnDelay);
+
+        // Reset flag ทีเดียวหลัง 1 event
+        skipNextDeathSound = false;
     }
 
     void Respawn()
