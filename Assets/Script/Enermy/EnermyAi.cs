@@ -1,4 +1,9 @@
 using UnityEngine;
+using System.Collections.Generic;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class EnermyAi : MonoBehaviour
 {
@@ -12,20 +17,24 @@ public class EnermyAi : MonoBehaviour
     public float chaseSpeed = 4f;
     public float damagePerSecond = 15f;
 
-    [Header("แสดงกรวยสายตา (ไฟเตือนเป็นสามเหลี่ยม)")]
+    [Header("แสดงกรวยสายตา")]
     public bool showSightCone = true;
-    [Tooltip("องศาครึ่งกรวย เช่น 25 = กว้างรวม ~50 องศา")]
+    [Tooltip("องศาครึ่งกรวย เช่น 25 = กว้างรวม 50 องศา")]
     public float sightHalfAngle = 25f;
     public Color sightColor = new Color(1f, 1f, 0f, 0.25f);
 
-    [Header("เอฟเฟกต์กรวยสายตาตามจุดสิ้นสุด Pattern")]
-    [Tooltip("ให้กรวยสายตาแคบลงเมื่อใกล้ถึงจุดปลายทางเดิน")]
-    public bool useDynamicSightWidth = true;
-    [Range(0.05f, 1f)]
-    [Tooltip("สัดส่วนความกว้างขั้นต่ำตอนใกล้สุดปลาย Pattern (1 = กว้างเท่าเดิม)")]
-    public float minWidthScaleWhenClose = 0.3f;
-    [Tooltip("**ระยะก่อนถึงปลาย Pattern ที่เริ่มค่อย ๆ ลดความกว้างของแสง (จะถูกละเลยในเวอร์ชันนี้, ไม่ต้องแก้ Inspector)**")]
-    public float fadeDistanceFromEnd = 1.5f;
+    [Header("ปรับตำแหน่งและองศาไฟ")]
+    [Tooltip("ตำแหน่งไฟ (X: เดินหน้า/ถอยหลัง, Y: ความสูง) แนะนำ Y = 1.5")]
+    public Vector3 sightOffset = new Vector3(0.5f, 1.5f, 0f);
+    [Tooltip("องศาการก้มมอง (ค่าติดลบคือมองเฉียงลงพื้น เช่น -35)")]
+    public float sightTiltAngle = -35f;
+
+    [Header("ระบบแสงสมจริง (ยิง Raycast)")]
+    [Tooltip("เลือก Layer ที่เป็นพื้นหรือกำแพง (เพื่อให้แสงส่องทาบไปบนพื้น)")]
+    public LayerMask obstacleMask;
+    [Range(5, 50)]
+    [Tooltip("ความละเอียดของเส้นแสง (แนะนำ 20)")]
+    public int rayCount = 20;
 
     [Header("Screen Shake (ไกล=เบา, ใกล้=แรง)")]
     public float shakeFarDistance = 6f;
@@ -41,22 +50,16 @@ public class EnermyAi : MonoBehaviour
     private HidingSystem playerHiding;
     private SceenShake screenShake;
     private SpriteRenderer sprite;
-    private Rigidbody2D rb;
 
-    // กรวยสายตา (Mesh สามเหลี่ยม)
     private Transform sightConeTransform;
     private MeshFilter sightMeshFilter;
     private MeshRenderer sightMeshRenderer;
     private bool facingRight = true;
-
     private bool movingRight = true;
     private bool canSeePlayer;
-    private float damageTimer;
 
-    // ความยาวที่แท้จริงของกรวยสายตา (จะถูกอัปเดตทุก frame)
-    private float visibleConeLength = -1f;
-    // ความกว้างปลายกรวยแบบ dynamic (จะนำไปใช้ขณะวาด mesh)
-    private float dynamicWidthForCone = -1f;
+    private float damageTimer = 0f;
+    private float sightGraceTimer = 0f;
 
     void Start()
     {
@@ -69,7 +72,6 @@ public class EnermyAi : MonoBehaviour
 
         screenShake = Camera.main?.GetComponent<SceenShake>();
         sprite = GetComponent<SpriteRenderer>();
-        rb = GetComponent<Rigidbody2D>();
 
         CreateSightCone();
 
@@ -100,7 +102,12 @@ public class EnermyAi : MonoBehaviour
             }
             return;
         }
-        if (playerHealth != null && playerHealth.IsDead) { canSeePlayer = false; EnemyAlertUI.IsPlayerSpotted = false; return; }
+        if (playerHealth != null && playerHealth.IsDead)
+        {
+            canSeePlayer = false;
+            EnemyAlertUI.IsPlayerSpotted = false;
+            return;
+        }
 
         CheckSight();
         EnemyAlertUI.IsPlayerSpotted = canSeePlayer;
@@ -114,41 +121,35 @@ public class EnermyAi : MonoBehaviour
         else
         {
             Patrol();
+            damageTimer = 0f;
         }
 
         FlipSprite();
         UpdateSightConeVisual();
     }
 
+    public void RegisterSightFromTrigger()
+    {
+        sightGraceTimer = 0.05f;
+    }
+
     void CheckSight()
     {
-        float dist = Vector2.Distance(transform.position, player.position);
-        if (dist > sightRange)
-        {
-            canSeePlayer = false;
-            return;
-        }
-        float minX = GetPatternMinX();
-        float maxX = GetPatternMaxX();
-        if (player.position.x < minX || player.position.x > maxX)
-        {
-            canSeePlayer = false;
-            return;
-        }
-        bool facingRight = canSeePlayer ? (player.position.x > transform.position.x) : movingRight;
-        bool playerInFront = (facingRight && player.position.x > transform.position.x) ||
-                            (!facingRight && player.position.x < transform.position.x);
-        if (!playerInFront)
-        {
-            canSeePlayer = false;
-            return;
-        }
         if (playerHiding != null && playerHiding.isHiding)
         {
             canSeePlayer = false;
             return;
         }
-        canSeePlayer = true;
+
+        if (sightGraceTimer > 0f)
+        {
+            canSeePlayer = true;
+            sightGraceTimer -= Time.deltaTime;
+        }
+        else
+        {
+            canSeePlayer = false;
+        }
     }
 
     float GetPatternMinX() => Mathf.Min(leftPoint.position.x, rightPoint.position.x);
@@ -170,20 +171,14 @@ public class EnermyAi : MonoBehaviour
         float maxX = GetMaxPatrolX();
         float myX = transform.position.x;
 
-        // ปรับทิศทางเมื่อถึงระยะใกล้ pattern โดยหยุดก่อนถึงจุดปลาย pattern
-        if (movingRight && myX >= maxX - 0.001f)
-            movingRight = false;
-        else if (!movingRight && myX <= minX + 0.001f)
-            movingRight = true;
+        if (movingRight && myX >= maxX - 0.001f) movingRight = false;
+        else if (!movingRight && myX <= minX + 0.001f) movingRight = true;
 
         float moveX = (movingRight ? patrolSpeed : -patrolSpeed) * Time.deltaTime;
         Vector3 targetMove = new Vector3(moveX, 0, 0);
 
-        // ตรวจสอบถ้าขยับแล้วจะเกินขอบ ให้ตัดไม่ให้เลยออกไป (ไว้หยุดก่อนทับ)
-        if (movingRight && myX + moveX > maxX)
-            targetMove.x = maxX - myX;
-        else if (!movingRight && myX + moveX < minX)
-            targetMove.x = minX - myX;
+        if (movingRight && myX + moveX > maxX) targetMove.x = maxX - myX;
+        else if (!movingRight && myX + moveX < minX) targetMove.x = minX - myX;
 
         transform.Translate(targetMove, Space.World);
         ClampToPattern();
@@ -197,25 +192,26 @@ public class EnermyAi : MonoBehaviour
 
         float nextX = transform.position.x + dir * chaseSpeed * Time.deltaTime;
 
-        // Limit target position so enemy will not pass min/max safe patrol zone
-        if (dir > 0 && nextX > maxX)
-            nextX = maxX;
-        else if (dir < 0 && nextX < minX)
-            nextX = minX;
+        if (dir > 0 && nextX > maxX) nextX = maxX;
+        else if (dir < 0 && nextX < minX) nextX = minX;
 
         transform.position = new Vector3(nextX, transform.position.y, transform.position.z);
-        // Clamp To Pattern แบบระยะปลอดภัย (ซ้ำเพื่อความแน่นอน)
         ClampToPattern();
     }
 
     void DamagePlayerOverTime()
     {
         if (playerHealth == null) return;
-        damageTimer += Time.deltaTime;
-        if (damageTimer >= 0.2f)
+
+        if (damageTimer <= 0f)
         {
-            damageTimer = 0f;
             playerHealth.TakeDamage(damagePerSecond * 0.2f);
+            EnemyAlertUI.NotifyPlayerDamaged();
+            damageTimer = 0.2f;
+        }
+        else
+        {
+            damageTimer -= Time.deltaTime;
         }
     }
 
@@ -223,22 +219,18 @@ public class EnermyAi : MonoBehaviour
     {
         if (screenShake == null) return;
 
-        float dist = Vector2.Distance(transform.position, player.position);
-        float t = Mathf.InverseLerp(shakeFarDistance, shakeNearDistance, dist);
+        float dist = Vector2.Distance(sightConeTransform.position, player.position);
+        float t = Mathf.InverseLerp(sightRange, shakeNearDistance, dist);
         float intensity = Mathf.Lerp(shakeFarIntensity, shakeNearIntensity, t);
+
         screenShake.SetShakeIntensity(intensity);
     }
 
     void FlipSprite()
     {
-        bool faceRight = canSeePlayer
-            ? player.position.x > transform.position.x
-            : movingRight;
-
+        bool faceRight = canSeePlayer ? player.position.x > transform.position.x : movingRight;
         facingRight = faceRight;
-
-        if (sprite != null)
-            sprite.flipX = !faceRight;
+        if (sprite != null) sprite.flipX = !faceRight;
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -249,20 +241,11 @@ public class EnermyAi : MonoBehaviour
                 h.Die();
     }
 
-    void OnCollisionEnter2D(Collision2D other)
-    {
-        Health h = other.gameObject.GetComponentInParent<Health>();
-        if (h != null && !h.IsDead && !h.IsInvincible)
-            if (playerHiding == null || !playerHiding.isHiding)
-                h.Die();
-    }
-
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, sightRange);
 
-        // Show safe zone for enemy movement (yellow lines at the offset zone)
         if (leftPoint != null && rightPoint != null)
         {
             float minX = (leftPoint.position.x < rightPoint.position.x ? leftPoint.position.x : rightPoint.position.x) + stopOffsetFromPatternPoint;
@@ -275,7 +258,7 @@ public class EnermyAi : MonoBehaviour
         }
     }
 
-    #region Sight Cone (Triangle)
+    #region Raycast Sight Cone (Realistic)
     void CreateSightCone()
     {
         if (!showSightCone) return;
@@ -300,42 +283,21 @@ public class EnermyAi : MonoBehaviour
         mat.color = sightColor;
         sightMeshRenderer.material = mat;
 
-        UpdateSightConeMesh();
+        Rigidbody2D coneRb = cone.AddComponent<Rigidbody2D>();
+        coneRb.isKinematic = true;
+        PolygonCollider2D polyCol = cone.AddComponent<PolygonCollider2D>();
+        polyCol.isTrigger = true;
+
+        SightConeTrigger trigger = cone.AddComponent<SightConeTrigger>();
+        trigger.ai = this;
+
         UpdateSightConeVisual();
-    }
-
-    // === ปรับให้กรวยตัดเฉพาะขอบ pattern และฐานกรวยสิ้นสุดจริงตามตำแหน่ง pattern ===
-    void UpdateSightConeMesh()
-    {
-        if (sightMeshFilter == null) return;
-
-        float len = (visibleConeLength > 0f) ? visibleConeLength : sightRange;
-        float tipWidthScale = (dynamicWidthForCone > 0f) ? dynamicWidthForCone : 1f;
-
-        Mesh mesh = new Mesh();
-
-        // กำหนดความกว้างฐานที่ปลายกรวย
-        float tipWidth = len * Mathf.Tan(sightHalfAngle * Mathf.Deg2Rad) * tipWidthScale;
-
-        Vector3[] vertices = new Vector3[3];
-        vertices[0] = Vector3.zero;                // จุดศูนย์กลางที่ enemy
-        vertices[1] = new Vector3(len, +tipWidth, 0);  // ขอบปลายบน (ปลาย pattern)
-        vertices[2] = new Vector3(len, -tipWidth, 0);  // ขอบปลายล่าง (ปลาย pattern)
-
-        int[] triangles = { 0, 1, 2 };
-
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.RecalculateBounds();
-
-        sightMeshFilter.mesh = mesh;
     }
 
     void UpdateSightConeVisual()
     {
         if (sightConeTransform == null || sightMeshRenderer == null) return;
 
-        // ถ้าปิดการแสดงผล ก็ปิด renderer ไปเลย
         if (!showSightCone)
         {
             sightMeshRenderer.enabled = false;
@@ -343,38 +305,118 @@ public class EnermyAi : MonoBehaviour
         }
 
         sightMeshRenderer.enabled = true;
-
-        // ให้กรวยพุ่งไปด้านที่ศัตรูกำลังมอง
         float dir = facingRight ? 1f : -1f;
-        float minX = GetMinPatrolX();
-        float maxX = GetMaxPatrolX();
-        float myX = transform.position.x;
-        float targetEndX = facingRight ? maxX : minX;
 
-        float distToEnd = Mathf.Abs(targetEndX - myX);
-        float coneDrawLength = Mathf.Min(sightRange, distToEnd);
-
-        // ป้องกันกรวยหายเมื่อชิด pattern
-        if (coneDrawLength <= 0.01f)
-        {
-            sightMeshRenderer.enabled = false;
-            visibleConeLength = 0;
-            return;
-        }
-
-        sightMeshRenderer.enabled = true;
-
-        visibleConeLength = coneDrawLength;
-
-        // t = สัดส่วนระยะปกติภายในกรวย
-        float t = (sightRange <= 0f) ? 0f : Mathf.Clamp01(coneDrawLength / sightRange);
-        dynamicWidthForCone = useDynamicSightWidth ? Mathf.Lerp(minWidthScaleWhenClose, 1f, t) : 1f;
-
-        // ปักกรวยไว้ที่แกน x = 0 (local), ให้หมุนกลับตาม direction
+        // ขยับจุดกำเนิดแสง
+        sightConeTransform.localPosition = new Vector3(sightOffset.x * dir, sightOffset.y, sightOffset.z);
+        sightConeTransform.localRotation = Quaternion.Euler(0, 0, sightTiltAngle * dir);
         sightConeTransform.localScale = new Vector3(dir, 1f, 1f);
 
-        // อัปเดต mesh ใหม่ (ความยาวและปลาย)
-        UpdateSightConeMesh();
+        UpdateSightConeMesh(dir);
+    }
+
+    void UpdateSightConeMesh(float dir)
+    {
+        if (sightMeshFilter == null) return;
+
+        int rays = Mathf.Max(2, rayCount);
+        Vector3[] vertices = new Vector3[rays + 2];
+        vertices[0] = Vector3.zero; // จุดกำเนิดตา
+
+        List<Vector2> colPoints = new List<Vector2>();
+        colPoints.Add(Vector2.zero);
+
+        // คำนวณองศา
+        float baseWorldAngle = facingRight ? 0f : 180f;
+        baseWorldAngle += sightTiltAngle * dir; 
+        
+        float currentAngle = baseWorldAngle - sightHalfAngle;
+        float angleStep = (sightHalfAngle * 2f) / rays;
+
+        float minPatrolX = GetMinPatrolX();
+        float maxPatrolX = GetMaxPatrolX();
+        float eyeX = sightConeTransform.position.x; // พิกัดตาปัจจุบัน
+
+        for (int i = 0; i <= rays; i++)
+        {
+            float rad = currentAngle * Mathf.Deg2Rad;
+            Vector3 worldDir = new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0);
+            
+            // 1. คำนวณระยะทางสูงสุดที่จะไม่ทะลุ Patrol Zone (แก้ปัญหาแสงปลิ้น)
+            float maxAllowedDist = sightRange;
+            
+            if (worldDir.x > 0) 
+            {
+                // ถ้ายิงไปขวา หาระยะไปถึงขอบขวา
+                float distToMaxX = (maxPatrolX - eyeX) / worldDir.x;
+                if (distToMaxX < maxAllowedDist) maxAllowedDist = Mathf.Max(0, distToMaxX);
+            }
+            else if (worldDir.x < 0) 
+            {
+                // ถ้ายิงไปซ้าย หาระยะไปถึงขอบซ้าย
+                float distToMinX = (minPatrolX - eyeX) / worldDir.x;
+                if (distToMinX < maxAllowedDist) maxAllowedDist = Mathf.Max(0, distToMinX);
+            }
+
+            // 2. ยิง Raycast ด้วยระยะที่ปลอดภัยแล้ว (ไม่ทะลุกำแพง และไม่ปลิ้นย้อนหลัง)
+            RaycastHit2D hit = Physics2D.Raycast(sightConeTransform.position, worldDir, maxAllowedDist, obstacleMask);
+            
+            // 3. กำหนดจุดตกกระทบ
+            Vector3 worldPos;
+            if (hit.collider != null) 
+            {
+                worldPos = hit.point;
+            }
+            else 
+            {
+                worldPos = sightConeTransform.position + worldDir * maxAllowedDist;
+            }
+
+            // แปลงกลับเป็น Local สำหรับวาด Mesh
+            Vector3 localPos = sightConeTransform.InverseTransformPoint(worldPos);
+            localPos.z = 0;
+
+            vertices[i + 1] = localPos;
+            colPoints.Add(localPos);
+
+            currentAngle += angleStep;
+        }
+
+        // สร้างและอัปเดต Mesh
+        Mesh mesh = new Mesh();
+        mesh.vertices = vertices;
+
+        int[] triangles = new int[rays * 3];
+        for (int i = 0; i < rays; i++)
+        {
+            triangles[i * 3] = 0;
+            triangles[i * 3 + 1] = i + 1;
+            triangles[i * 3 + 2] = i + 2;
+        }
+
+        mesh.triangles = triangles;
+        mesh.RecalculateBounds();
+        sightMeshFilter.mesh = mesh;
+
+        // อัปเดต Collider ให้ตรงกับแสงเป๊ะๆ
+        PolygonCollider2D polyCol = sightConeTransform.GetComponent<PolygonCollider2D>();
+        if (polyCol != null)
+        {
+            polyCol.points = colPoints.ToArray();
+        }
     }
     #endregion
+}
+
+// --- ไฟล์นี้ท้ายสุด: ใช้สำหรับรับ Trigger โซนของไฟ ---
+public class SightConeTrigger : MonoBehaviour
+{
+    public EnermyAi ai;
+    void OnTriggerStay2D(Collider2D col)
+    {
+        if (col.CompareTag("Player"))
+        {
+            ai.RegisterSightFromTrigger();
+        }
+    }
 }

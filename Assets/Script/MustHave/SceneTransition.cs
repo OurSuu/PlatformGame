@@ -7,6 +7,9 @@ public class SceneTransition : MonoBehaviour
     [Tooltip("พิมพ์ชื่อ Scene ให้ตรงกับไฟล์เป๊ะๆ (เช่น Level2, MainMenu)")]
     public string targetSceneName = "Level2";
 
+    [Header("ข้อความ & ฟอนต์")]
+    public Font customFont; // 1. เพิ่มตัวแปรฟอนต์
+
     private bool playerInRange = false;
     private bool showPrompt = false;
 
@@ -18,6 +21,12 @@ public class SceneTransition : MonoBehaviour
         guiStyle = new GUIStyle();
         guiStyle.normal.textColor = Color.white;
         guiStyle.alignment = TextAnchor.MiddleCenter;
+
+        // 2. เช็คและใส่ฟอนต์ตั้งแต่ตอนเริ่มเกม
+        if (customFont != null)
+        {
+            guiStyle.font = customFont;
+        }
     }
 
     void Update()
@@ -53,8 +62,8 @@ public class SceneTransition : MonoBehaviour
         if (showPrompt)
         {
             // ปรับขนาดฟอนต์ตามความสูงของหน้าจอ (10% ของความสูงหน้าจอ)
-            guiStyle.fontSize = Mathf.Max(18, Screen.height / 15);
-            string message = "กด E เพื่อวาร์ปไปอีกฉาก";
+            guiStyle.fontSize = Mathf.Max(18, Mathf.RoundToInt(Screen.height * 0.10f));
+            string message = "Press E To Transition To " + targetSceneName;
             Rect rect = new Rect(0, Screen.height * 0.8f, Screen.width, Screen.height * 0.1f);
             GUI.Label(rect, message, guiStyle);
         }

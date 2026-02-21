@@ -8,14 +8,23 @@ public class HidingSpot : MonoBehaviour
     [Header("ระยะกด E ได้ (ใหญ่ = กดจากไกลได้)")]
     public float interactionRadius = 3f;
 
-    [Header("ข้อความที่แสดง")]
-    public string promptText = "กด E เพื่อซ่อนตัว";
-    public string cannotHideText = "ไม่สามารถซ่อนได้ (ศัตรูกำลังเห็นคุณ!)"; // ข้อความกรณีซ่อนไม่ได้
+    [Header("ข้อความ & ฟอนต์")]
+    public Font customFont; // 1. เพิ่มบรรทัดนี้เข้ามา
+    public string promptText = "Press E To Hide";
+    public string cannotHideText = "Cannot Hide Enermy Saw You!"; // ข้อความกรณีซ่อนไม่ได้
+
+    [Header("เสียงขณะซ่อนตัว")]
+    public AudioClip hidingSound; // เอฟเฟกต์เสียงขณะเข้าจุดซ่อน
+    public float hidingSoundVolume = 1.0f;
+    private AudioSource audioSource;
 
     private bool playerInRange = false;
     private HidingSystem playerHidingScript;
     private GUIStyle promptStyle;
     private bool styleReady;
+
+    // สำหรับเช็ค state ของเสียง looping
+    private bool isHidingLoopPlaying = false;
 
     // State สำหรับ error message
     private bool cannotHideMsgActive = false;
@@ -26,6 +35,14 @@ public class HidingSpot : MonoBehaviour
     {
         if (centerPoint == null)
             centerPoint = transform;
+
+        // เตรียม AudioSource สำหรับเล่นเสียงซ่อนตัว
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null && hidingSound != null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
     }
 
     void Update()
@@ -51,12 +68,22 @@ public class HidingSpot : MonoBehaviour
                         }
                     }
                     playerHidingScript.EnterHidingSpot(centerPoint.position);
+                    // เริ่มเสียง looping เมื่อเข้าจุดซ่อน
+                    StartHidingLoop();
                 }
                 else
                 {
                     playerHidingScript.ExitHidingSpot();
+                    // หยุดเสียง looping เมื่อออกจากจุดซ่อน
+                    StopHidingLoop();
                 }
             }
+        }
+
+        // หาก player เดินออกจาก range แล้วกำลังซ่อนอยู่ ให้หยุด sound ทันที (safety)
+        if ((!playerInRange || playerHidingScript == null || !playerHidingScript.isHiding) && isHidingLoopPlaying)
+        {
+            StopHidingLoop();
         }
 
         // timer สำหรับ hide message
@@ -68,6 +95,29 @@ public class HidingSpot : MonoBehaviour
                 cannotHideMsgActive = false;
                 cannotHideMsg = "";
             }
+        }
+    }
+
+    private void StartHidingLoop()
+    {
+        if (audioSource != null && hidingSound != null && !isHidingLoopPlaying)
+        {
+            audioSource.loop = true;
+            audioSource.clip = hidingSound;
+            audioSource.volume = hidingSoundVolume;
+            audioSource.Play();
+            isHidingLoopPlaying = true;
+        }
+    }
+
+    private void StopHidingLoop()
+    {
+        if (audioSource != null && isHidingLoopPlaying)
+        {
+            audioSource.Stop();
+            audioSource.loop = false;
+            audioSource.clip = null;
+            isHidingLoopPlaying = false;
         }
     }
 
@@ -134,6 +184,7 @@ public class HidingSpot : MonoBehaviour
             if (!styleReady)
             {
                 promptStyle = new GUIStyle(GUI.skin.label);
+                if (customFont != null) promptStyle.font = customFont; // เพิ่มบรรทัดนี้
                 promptStyle.fontSize = 22;
                 promptStyle.alignment = TextAnchor.MiddleCenter;
                 promptStyle.normal.textColor = Color.red;
@@ -152,6 +203,7 @@ public class HidingSpot : MonoBehaviour
         if (!styleReady)
         {
             promptStyle = new GUIStyle(GUI.skin.label);
+            if (customFont != null) promptStyle.font = customFont; // เพิ่มบรรทัดนี้
             promptStyle.fontSize = 22;
             promptStyle.alignment = TextAnchor.MiddleCenter;
             promptStyle.normal.textColor = Color.white;
@@ -159,7 +211,7 @@ public class HidingSpot : MonoBehaviour
             styleReady = true;
         }
 
-        string text = playerHidingScript.isHiding ? "กด E เพื่อออกจากจุดซ่อน" : promptText;
+        string text = playerHidingScript.isHiding ? "Press E To Exit Hiding" : promptText;
         float w2 = 400f;
         float h2 = 40f;
         Rect r2 = new Rect(Screen.width * 0.5f - w2 * 0.5f, Screen.height * 0.7f, w2, h2);

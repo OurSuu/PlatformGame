@@ -1,48 +1,44 @@
 using UnityEngine;
 
 /// <summary>
-/// ติดที่ Main Camera - ติดตาม Player พร้อม Look Ahead, Y Damping
+/// ติดที่ Main Camera - สไตล์ Cinematic Horror (มองนำหน้า, สมูท, ไม่ดึงกลับตอนหยุด)
 /// </summary>
 public class CameraFollow : MonoBehaviour
 {
     [Header("ตัวที่จะติดตาม")]
     public Transform target;
 
-    [Header("ตำแหน่ง Camera")]
-    public Vector3 offset = new Vector3(0f, 0f, -10f);
+    [Header("ตำแหน่ง Camera (จุดอ้างอิง)")]
+    [Tooltip("แกน Y ควรเป็นค่าบวก (เช่น 1.5 หรือ 2) เพื่อให้ตัวละครอยู่ขอบล่างจอ")]
+    public Vector3 offset = new Vector3(0f, 1.5f, -10f);
 
-    [Header("Look Ahead (กล้องมองนำหน้าผู้เล่น)")]
-    [Tooltip("ระยะกล้องจะขยับนำหน้าทางที่ผู้เล่นหัน")]
-    public float lookAheadDistance = 3f;
-    [Tooltip("ความเร็วในการเปลี่ยน Look Ahead")]
-    public float lookAheadSpeed = 5f;
+    [Header("Horror Camera (มองนำหน้า)")]
+    [Tooltip("ระยะกล้องจะขยับนำหน้าทางที่ผู้เล่นหัน (ยิ่งเยอะยิ่งเห็นทางข้างหน้าไกล) แนะนำ 3-4")]
+    public float lookAheadDistance = 3.5f;
+    [Tooltip("ความหนืดเวลาหันหลังกลับ (ค่าน้อย = กล้องจะค่อยๆ แพนช้าๆ ดูหลอนๆ) แนะนำ 2-3")]
+    public float lookAheadSpeed = 2.5f;
+
     private float currentLookAheadX = 0f;
     private float targetLookAheadX = 0f;
 
-    [Header("Smooth (ความลื่นกล้อง)")]
-    public float smoothSpeedX = 5f;
-    public float smoothSpeedY = 2f; // ลดการสั่น Y
+    [Header("Smooth (ความหนืดของกล้อง)")]
+    [Tooltip("ความหนืดตอนวิ่งตามแกน X (แนะนำ 4-5)")]
+    public float smoothSpeedX = 4f;
+    [Tooltip("ความหนืดตอนโดดแกน Y (แนะนำ 2-3)")]
+    public float smoothSpeedY = 2f;
 
-    [Header("Y Dead Zone (กล้องจะไม่ขยับ Y หากผู้เล่นขยับในระยะนี้)")]
-    public float yDeadZone = 0.7f;
+    [Header("Y Dead Zone (พื้นที่กระโดด/ลงเนินแล้วกล้องไม่ตาม)")]
+    [Tooltip("ถ้าโดดเตี้ยกว่าค่านี้ กล้องจะไม่ขยับขึ้นลงตามให้เวียนหัว")]
+    public float yDeadZone = 1.0f;
+
     private float cameraTargetY;
 
-    [Header("กันกล้องทะลุฉาก")]
-    [Tooltip("เลือก Layer ของพื้น / กำแพง ที่ไม่อยากให้กล้องทะลุ")]
-    public LayerMask collisionMask;
-    [Tooltip("รัศมีวงกลมตรวจชนจากตัวละครไปหากล้อง")]
-    public float collisionRadius = 0.2f;
-
-    [Header("จำกัดขอบเขต (ว่าง = ไม่จำกัด)")]
+    [Header("จำกัดขอบเขตฉาก (ว่าง = ไม่จำกัด)")]
     public bool useBounds;
     public float minX = -50f;
     public float maxX = 50f;
     public float minY = -50f;
     public float maxY = 50f;
-
-    // ต้องรู้ "ทิศหันหน้าผู้เล่น" อย่างน้อยให้ลอง auto-detect จาก LocalScale.x แบบเกม 2D Platformer ทั่วไป
-    private float lastTargetX;
-    private int lastFacingDir = 1;
 
     void Start()
     {
@@ -51,123 +47,58 @@ public class CameraFollow : MonoBehaviour
 
         if (target != null)
         {
-            lastTargetX = target.position.x;
-            cameraTargetY = target.position.y + offset.y;
+            cameraTargetY = target.position.y;
+            // ตั้งค่าเริ่มต้นให้กล้องมองนำหน้าไปเลยแต่แรก
+            currentLookAheadX = Mathf.Sign(target.localScale.x) * lookAheadDistance;
         }
     }
 
     void LateUpdate()
     {
-        if (target == null)
-            return;
+        if (target == null) return;
 
-        // ---------- 1. Look Ahead (หาทิศทางเดิน) ----------
-        float moveDeltaX = target.position.x - lastTargetX;
-        lastTargetX = target.position.x;
+        // 1. เช็คทิศทางที่ผู้เล่นหัน (อิงจาก Scale X)
+        // ถ้าเกมคุณหันหน้าด้วยวิธีอื่น (เช่น flipX) ให้แก้บรรทัดนี้ครับ
+        float facingDir = Mathf.Sign(target.localScale.x);
 
-        // หาทิศทาง (ดูจาก localScale.x หรือตรวจสอบ moveDeltaX > 0)
-        int facingDir = lastFacingDir;
-        if (Mathf.Abs(moveDeltaX) > 0.02f)
-        {
-            facingDir = moveDeltaX > 0 ? 1 : -1;
-            lastFacingDir = facingDir;
-        }
-        else if (target.localScale.x != 0)
-        {
-            facingDir = target.localScale.x > 0 ? 1 : -1;
-            lastFacingDir = facingDir;
-        }
-
-        // โหมด Look Ahead เฉพาะเมื่อเคลื่อนที่เร็วพอ
-        if (Mathf.Abs(moveDeltaX) > 0.05f)
-            targetLookAheadX = facingDir * lookAheadDistance;
-        else
-            targetLookAheadX = 0f;
+        // 2. Look Ahead (ทิ้งระยะไปข้างหน้าเสมอ ไม่ว่าหยุดหรือเดิน)
+        targetLookAheadX = facingDir * lookAheadDistance;
         currentLookAheadX = Mathf.Lerp(currentLookAheadX, targetLookAheadX, Time.deltaTime * lookAheadSpeed);
 
-        // ---------- 2. Y-Axis Damping/Dead Zone ----------
-        float rawTargetY = target.position.y + offset.y;
-        float camY = transform.position.y;
-
-        // มี dead zone (ตัวละครกระโดดนิดหน่อย กล้องไม่ขยับ)
-        if (Mathf.Abs(rawTargetY - cameraTargetY) > yDeadZone)
+        // 3. แกน Y Deadzone (กันกล้องสั่นตอนเดินขึ้นเนินหรือโดดนิดหน่อย)
+        if (Mathf.Abs(target.position.y - cameraTargetY) > yDeadZone)
         {
-            cameraTargetY = Mathf.Lerp(cameraTargetY, rawTargetY, Time.deltaTime * smoothSpeedY);
+            cameraTargetY = Mathf.Lerp(cameraTargetY, target.position.y, Time.deltaTime * smoothSpeedY);
         }
-        // หรือ smooth มากเพื่อไม่ตามไวเกิน (จำกัดความลื่น)
-        else
-        {
-            cameraTargetY = Mathf.Lerp(cameraTargetY, rawTargetY, Time.deltaTime * (smoothSpeedY * 0.5f));
-        }
+        // else: ไม่ขยับ Y ให้เวียนหัว
 
-        // ตำแหน่ง x นำ Look Ahead + ลื่น X
-        float cameraTargetX = Mathf.Lerp(transform.position.x, target.position.x + offset.x + currentLookAheadX, Time.deltaTime * smoothSpeedX);
+        // 4. คำนวณจุดเป้าหมายที่กล้อง "ควร" จะไปอยู่
+        float targetX = target.position.x + currentLookAheadX + offset.x;
+        float targetY = cameraTargetY + offset.y;
 
-        // ---------- 3. กันกล้องทะลุพื้น / กำแพง ----------
-        Vector2 desiredPos = new Vector2(cameraTargetX, cameraTargetY);
-        Vector2 from = target.position;
-        Vector2 to = desiredPos;
-        Vector2 dir = to - from;
-        float dist = dir.magnitude;
+        // 5. เลื่อนกล้องจากจุดปัจจุบัน ไปหาจุดเป้าหมายอย่างสมูท (Cinematic feel)
+        float newX = Mathf.Lerp(transform.position.x, targetX, Time.deltaTime * smoothSpeedX);
+        float newY = Mathf.Lerp(transform.position.y, targetY, Time.deltaTime * smoothSpeedY);
 
-        // ตรวจชน
-        if (dist > 0.01f && collisionMask.value != 0)
-        {
-            RaycastHit2D hit = Physics2D.CircleCast(from, collisionRadius, dir.normalized, dist, collisionMask);
-            if (hit.collider != null)
-            {
-                Vector2 hitPos = hit.point;
-                desiredPos = hitPos - dir.normalized * collisionRadius;
-            }
-        }
+        Vector3 finalPos = new Vector3(newX, newY, offset.z);
 
-        // ---------- 4. จำกัดขอบเขต ----------
-        Camera cam = GetComponent<Camera>();
-        Vector3 boundedPos = new Vector3(desiredPos.x, desiredPos.y, offset.z);
-
+        // 6. จำกัดขอบเขตฉาก
         if (useBounds)
         {
-            // ด้านซ้าย-ขวา
-            boundedPos.x = Mathf.Clamp(boundedPos.x, minX, maxX);
+            Camera cam = GetComponent<Camera>();
+            finalPos.x = Mathf.Clamp(finalPos.x, minX, maxX);
 
-            // ด้านล่าง (ถ้ากล้อง orthographic ให้ bottom ของจอ >= minY)
             if (cam != null && cam.orthographic)
             {
                 float minCamY = minY + cam.orthographicSize;
-                boundedPos.y = Mathf.Clamp(boundedPos.y, minCamY, maxY);
+                finalPos.y = Mathf.Clamp(finalPos.y, minCamY, maxY);
             }
             else
             {
-                boundedPos.y = Mathf.Clamp(boundedPos.y, minY, maxY);
+                finalPos.y = Mathf.Clamp(finalPos.y, minY, maxY);
             }
         }
 
-        transform.position = boundedPos;
-    }
-
-    /// <summary>
-    /// เช็คจุดสัมผัสพื้น (ใช้ Raycast ลงล่างหรืออื่นๆ)
-    /// ยิ่งดีถ้า PlayerController มี isGrounded สาธารณะ แต่ fallback ด้วย Physics2D
-    /// </summary>
-    bool IsPlayerGrounded()
-    {
-        if (target == null)
-            return false;
-        // Override ด้วย isGrounded ถ้ามี
-        var player = target.GetComponent<MonoBehaviour>();
-        if (player != null)
-        {
-            var field = player.GetType().GetField("isGrounded");
-            if (field != null)
-            {
-                bool isGrounded = (bool)field.GetValue(player);
-                return isGrounded;
-            }
-        }
-        // fallback: Raycast ลงล่างสั้นๆ
-        Vector2 pos = target.position;
-        float rayLength = 0.2f;
-        RaycastHit2D hit = Physics2D.Raycast(pos, Vector2.down, rayLength, collisionMask);
-        return hit.collider != null;
+        transform.position = finalPos;
     }
 }

@@ -8,7 +8,8 @@ public class DeploySpot : MonoBehaviour
     public string[] requiredKeys; // เปลี่ยนจาก string เดียวเป็น Array
     public float interactDistance = 3f;
 
-    [Header("ข้อความ")]
+    [Header("ข้อความ & ฟอนต์")]
+    public Font customFont; // 1. เพิ่มบรรทัดนี้
     public string openMessage = "กด E เพื่อไขประตู";
     public string lockedMessage = "กุญแจยังไม่ครบ!";
 
@@ -102,6 +103,10 @@ public class DeploySpot : MonoBehaviour
             float scale = Mathf.Clamp(Screen.height / baseHeight, 0.5f, 2.5f);
 
             GUIStyle style = new GUIStyle(GUI.skin.label);
+
+            // 2. เพิ่มบรรทัดนี้
+            if (customFont != null) style.font = customFont;
+
             style.fontSize = Mathf.RoundToInt(36 * scale); // ใหญ่ขึ้นสำหรับ 4K, ปรับได้ตามต้องการ
             style.fontStyle = FontStyle.Bold;
 
@@ -126,7 +131,7 @@ public class DeploySpot : MonoBehaviour
             {
                 string keyName = requiredKeys[i];
                 bool hasIt = playerInv.HasKey(keyName);
-                string status = hasIt ? "[ / ] มีแล้ว" : "[ X ] ยังไม่มี";
+                string status = hasIt ? "[ / ] Already Have It" : "[ X ] Not Have";
                 style.normal.textColor = hasIt ? Color.green : Color.gray;
                 GUI.Label(
                     new Rect(startX + 32f * scale, startY + headerHeight + i * itemHeight, panelWidth - 64f * scale, itemHeight),

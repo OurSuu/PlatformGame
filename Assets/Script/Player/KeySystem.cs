@@ -3,10 +3,11 @@ using UnityEngine;
 public class KeySystem : MonoBehaviour
 {
     public float interactDistance = 2f;
-    [Tooltip("ตั้งชื่อ keyID ให้เหมือนกับใน InventoryInspector และใน KeySlot เช่น \"Key01\" \"BlueKey\" ")]
     public string keyID = "Key01"; // ต้องตั้งให้ตรงกับ keyID ใน Inventory
 
-    [Header("ข้อความที่แสดง (ใช้ {key} แทนชื่อกุญแจ)")]
+    [Header("ข้อความ & ฟอนต์")]
+    public Font customFont; // 1. เพิ่มบรรทัดนี้
+
     public string pickupPrompt = "กด E เพื่อเก็บกุญแจ [{key}]";
     public string pickupSuccess = "เก็บกุญแจแล้ว! [{key}]";
 
@@ -49,7 +50,6 @@ public class KeySystem : MonoBehaviour
 
                     if (Input.GetKeyDown(KeyCode.E))
                     {
-                        // ฟังก์ชันใหม่: เก็บกุญแจตาม keyID แบบใหม่
                         playerInv.GetKey(keyID);
 
                         // เล่นเสียง
@@ -84,18 +84,21 @@ public class KeySystem : MonoBehaviour
 
     void OnGUI()
     {
-        if (!string.IsNullOrEmpty(displayMessage))
+        if (!string.IsNullOrEmpty(displayMessage) && Camera.main != null)
         {
-            int width = 400;
-            int height = 40;
-            int x = (Screen.width - width) / 2;
-            int y = Screen.height - 100;
-            GUIStyle style = new GUIStyle(GUI.skin.label);
-            style.fontSize = 32;
-            style.normal.textColor = Color.yellow;
-            style.alignment = TextAnchor.MiddleCenter;
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(transform.position);
+            float adjustedY = Screen.height - screenPos.y;
 
-            GUI.Label(new Rect(x, y, width, height), displayMessage, style);
+            GUIStyle style = new GUIStyle(GUI.skin.label);
+
+            // 2. เพิ่มบรรทัดนี้
+            if (customFont != null) style.font = customFont;
+
+            style.fontSize = 20;
+            style.alignment = TextAnchor.MiddleCenter;
+            style.normal.textColor = Color.yellow;
+
+            GUI.Label(new Rect(screenPos.x - 200, adjustedY - 60, 400, 50), displayMessage, style);
         }
     }
 }

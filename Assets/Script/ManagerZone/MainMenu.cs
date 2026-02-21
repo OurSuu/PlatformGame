@@ -10,7 +10,7 @@ public class MainMenu : MonoBehaviour
     // เชื่อมปุ่ม Play กับ Scene GamePlay
     public void OnPlayButtonPressed()
     {
-        SceneManager.LoadScene("GamePlay");
+        SceneManager.LoadScene("LvL1");
     }
 
     // ปุ่ม Quit ใช้ได้จริงตอน build เกม (.exe หรือ package อื่นๆ)

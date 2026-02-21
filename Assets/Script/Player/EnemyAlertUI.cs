@@ -8,6 +8,9 @@ public class EnemyAlertUI : MonoBehaviour
     public static bool IsPlayerSpotted { get; set; }
     public static bool IsPlayerDamaged { get; set; }
 
+    [Header("Custom Font (optional)")]
+    public Font customFont; // <--- เพิ่มตัวแปร customFont
+
     private GUIStyle style;
     private bool styleReady;
 
@@ -43,6 +46,13 @@ public class EnemyAlertUI : MonoBehaviour
                 style.alignment = TextAnchor.UpperCenter;
                 style.normal.textColor = Color.red;
                 style.fontStyle = FontStyle.Bold;
+
+                // กำหนดฟอนต์พิเศษถ้ามีการตั้งค่า
+                if (customFont != null)
+                {
+                    style.font = customFont;
+                }
+
                 styleReady = true;
             }
 
@@ -60,7 +70,7 @@ public class EnemyAlertUI : MonoBehaviour
             float offsetY = Random.Range(-0.7f, 0.7f) * shakeAmount + Mathf.Cos(t * 1.1f) * (shakeAmount * 0.2f);
 
             Rect labelRect = new Rect(x + offsetX, y + offsetY, labelWidth, labelHeight);
-            GUI.Label(labelRect, "⚠ แอบเร็วว!!!", style);
+            GUI.Label(labelRect, "⚠ Hide Now!!!", style);
         }
     }
 

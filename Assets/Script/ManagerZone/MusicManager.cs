@@ -1,29 +1,23 @@
 using UnityEngine;
+using System.Collections;
 
 public class MusicManager : MonoBehaviour
 {
-    private static MusicManager instance;
-
     [Header("BGM ที่ต้องการให้เล่น")]
     public AudioClip bgmClip;
     [Range(0f, 1f)]
     public float bgmVolume = 1f;
 
+    [Header("Fade Controls")]
+    public float fadeInTime = 2f;
+    public float fadeOutTime = 2f;
+
     private AudioSource audioSource;
+    private bool isFadingOut = false;
 
     void Awake()
     {
-        // ระบบ Singleton เพื่อป้องกันไม่ให้มีเพลงซ้อนกันเวลาโหลด Scene กลับไปกลับมา
-        if (instance == null)
-        {
-            instance = this;
-            DontDestroyOnLoad(gameObject); // สั่งให้ Object นี้มีชีวิตอยู่ข้าม Scene
-            SetupBGM();
-        }
-        else
-        {
-            Destroy(gameObject); // ถ้ามี MusicManager อยู่แล้ว ให้ทำลายตัวที่เกิดใหม่ทิ้ง
-        }
+        SetupBGM();
     }
 
     private void SetupBGM()
@@ -35,13 +29,75 @@ public class MusicManager : MonoBehaviour
         }
 
         audioSource.clip = bgmClip;
-        audioSource.volume = bgmVolume;
-        audioSource.loop = true;
+        audioSource.volume = 0f; // Start at zero for fade in
+        audioSource.loop = false; // We'll handle looping with fade
         audioSource.playOnAwake = false;
 
         if (bgmClip != null)
         {
             audioSource.Play();
+            StartCoroutine(FadeInCoroutine());
+        }
+    }
+
+    private IEnumerator FadeInCoroutine()
+    {
+        float timer = 0f;
+        while (timer < fadeInTime)
+        {
+            if (audioSource == null) yield break;
+            audioSource.volume = Mathf.Lerp(0f, bgmVolume, timer / fadeInTime);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+        if (audioSource != null)
+            audioSource.volume = bgmVolume;
+
+        // Start monitoring for manual loop
+        StartCoroutine(LoopWithFade());
+    }
+
+    private IEnumerator FadeOutCoroutine()
+    {
+        isFadingOut = true;
+        float startVolume = audioSource.volume;
+        float timer = 0f;
+
+        while (timer < fadeOutTime)
+        {
+            if (audioSource == null) yield break;
+            audioSource.volume = Mathf.Lerp(startVolume, 0f, timer / fadeOutTime);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+        if (audioSource != null)
+            audioSource.volume = 0f;
+
+        isFadingOut = false;
+    }
+
+    // This will handle smooth looping with fade in and fade out
+    private IEnumerator LoopWithFade()
+    {
+        while (bgmClip != null)
+        {
+            float loopPoint = bgmClip.length - fadeOutTime;
+            // Wait until it's time to fade out
+            while (audioSource.time < loopPoint)
+                yield return null;
+
+            // Fade out
+            yield return FadeOutCoroutine();
+
+            // Restart from beginning, fade in
+            if (bgmClip != null)
+            {
+                audioSource.Stop();
+                audioSource.time = 0f;
+                audioSource.Play();
+                yield return FadeInCoroutine();
+                yield break; // The next FadeInCoroutine will start a new LoopWithFade
+            }
         }
     }
 }

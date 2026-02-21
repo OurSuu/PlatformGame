@@ -11,7 +11,21 @@ public class HidingSystem : MonoBehaviour
     // เพิ่ม Animator สำหรับเล่นอนิเมชั่น
     private Animator animator;
 
-    // เอา UI message สำหรับ "ซ่อนไม่ได้" ออก ไม่มี cannotHideMessageUI อีกต่อไป
+    // --- เพิ่มส่วนนี้: ปรับตำแหน่งศูนย์กลางจุดซ่อน และเลื่อนข้อความให้ตรงกับกราฟิก ---
+    [Header("ปรับตำแหน่งจุดซ่อน (ชดเชยตำแหน่ง Offset)")]
+    public Vector3 centerOffset = new Vector3(0, 1f, 0); // สามารถปรับให้เหมาะสมกับ sprite ผู้เล่น
+
+    [Header("ข้อความ & ฟอนต์")]
+    public Font customFont; // เช่นเดียวกับ KeySystem
+
+    public string hidingPrompt = "Press E To Hide";
+    public string exitPrompt = "Press E To Exit Hiding";
+    public string cannotHideText = "Cannot Hide Enermy Saw You!";
+
+    private string displayMessage = "";
+    private bool showCannotHideMsg = false;
+    private float cannotHideMsgTimer = 0f;
+    // -------------------------------------------------------
 
     // เพิ่มเพื่อเช็คศัตรูเห็นเราไหม
     private bool IsAnyEnemySeePlayer()
@@ -42,7 +56,6 @@ public class HidingSystem : MonoBehaviour
         {
             Debug.LogWarning("No Animator component found on Player for hiding animation!");
         }
-        // ตัด cannotHideMessageUI ออก (ไม่ต้องซ่อน UI)
     }
 
     /// <summary>
@@ -50,17 +63,21 @@ public class HidingSystem : MonoBehaviour
     /// </summary>
     public void EnterHidingSpot(Vector3 centerPosition)
     {
+        // ปรับตำแหน่งให้ + centerOffset ด้วย
+        Vector3 targetPosition = centerPosition + centerOffset;
         // ป้องกันซ่อนถ้าอยู่ในระยะที่ศัตรู "มองเห็น"
         if (IsAnyEnemySeePlayer())
         {
+            showCannotHideMsg = true;
+            cannotHideMsgTimer = 2.0f;
+            displayMessage = cannotHideText;
             Debug.Log("Cannot hide: You are in enemy sight!");
-            // ตัด ShowCannotHideMessage ออก ไม่ต้องแสดงข้อความ
             return;
         }
         if (isHiding) return;
 
         isHiding = true;
-        transform.position = centerPosition;
+        transform.position = targetPosition;
         rb.velocity = Vector2.zero;
 
         moveScript.SetCanMove(false);
@@ -81,8 +98,6 @@ public class HidingSystem : MonoBehaviour
             c.isTrigger = true;
         }
     }
-
-    // ตัด ShowCannotHideMessage และ HideCannotHideMessage ออก
 
     /// <summary>
     /// เรียกเมื่อผู้เล่นกด E อีกครั้งเพื่อออกจากจุดซ่อน
@@ -108,5 +123,35 @@ public class HidingSystem : MonoBehaviour
             foreach (var kv in originalIsTrigger)
                 if (kv.Key != null) kv.Key.isTrigger = kv.Value;
         }
+    }
+
+    // ====== เพิ่มการแสดงข้อความลอยเมื่อตรงจุดซ่อนตัว ======
+    void OnGUI()
+    {
+        if (showCannotHideMsg)
+        {
+            if (cannotHideMsgTimer > 0f)
+            {
+                cannotHideMsgTimer -= Time.deltaTime;
+                if (Camera.main != null)
+                {
+                    Vector3 msgPos = Camera.main.WorldToScreenPoint(transform.position + centerOffset);
+                    float adjY = Screen.height - msgPos.y;
+                    GUIStyle style = new GUIStyle(GUI.skin.label);
+                    if (customFont != null) style.font = customFont;
+                    style.fontSize = 22;
+                    style.alignment = TextAnchor.MiddleCenter;
+                    style.normal.textColor = Color.red;
+                    style.fontStyle = FontStyle.Bold;
+                    GUI.Label(new Rect(msgPos.x - 200, adjY - 60, 400, 50), displayMessage, style);
+                }
+            }
+            else
+            {
+                showCannotHideMsg = false;
+            }
+        }
+        // แสดงปุ่ม prompt "กด E เพื่อซ่อนตัว/ออก" ถ้ายังไม่ซ่อน หรือ "กด E เพื่อออก..." ถ้ากำลังซ่อน
+        // (ต้องถูกเรียกใช้จาก HidingSpot)
     }
 }
